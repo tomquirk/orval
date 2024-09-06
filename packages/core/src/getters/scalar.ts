@@ -10,6 +10,12 @@ import { getArray } from './array';
 import { getObject } from './object';
 import { resolveExampleRefs } from '../resolvers';
 
+const cache: Record<string, ScalarValue>= {}
+
+function getCacheKey(name: string, item: SchemaObject) {
+  return `${name}-${item.type}-${item.format}-${item.nullable}-${item.readOnly}`
+}
+
 /**
  * Return the typescript equivalent of open-api data type
  *
@@ -25,6 +31,11 @@ export const getScalar = ({
   name?: string;
   context: ContextSpecs;
 }): ScalarValue => {
+  const cacheKey = name ? getCacheKey(name, item) : undefined
+  if (cacheKey && cache[cacheKey]) {
+    return cache[cacheKey]
+  }
+
   // NOTE: Angular client does not support nullable types
   const isAngularClient = context.output.client === OutputClient.ANGULAR;
   const nullable = item.nullable && !isAngularClient ? ' | null' : '';
@@ -184,7 +195,13 @@ export const getScalar = ({
         context,
         nullable,
       });
-      return { value: value, ...rest };
+
+      const v = { value, ...rest }
+      if (cacheKey) {
+        cache[cacheKey] = v
+      }
+
+      return v
     }
   }
 };
